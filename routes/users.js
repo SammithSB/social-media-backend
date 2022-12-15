@@ -105,7 +105,24 @@ router.post("/login", async function (req, res, next) {
   }
   // Our register logic ends here
 });
-
+router.get("/users", verifyToken, async function (req, res, next) {
+  conn
+    .collection("users")
+    .find({ email: { $ne: req.emailDetected.email } })
+    .toArray(function (err, result) {
+      if (err) throw err;
+      // remove all fields except name, number of followes and following
+      result = result.map((user) => {
+        return {
+          name: user.name,
+          // email: user.email,
+          followers: user.followers.length,
+          following: user.following.length,
+        };
+      });
+      res.json(result);
+    });
+});
 router.get("/:email", async function (req, res, next) {
   console.log(req.params.email);
   conn

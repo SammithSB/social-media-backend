@@ -170,24 +170,6 @@ router.post("/comment/:id", verifyToken, async function (req, res, next) {
     });
   }
 });
-router.get("/:id", async function (req, res, next) {
-  console.log(req.params.id);
-  try {
-    // load model from models\postModel.js
-    const PostModel = require("../models/postModel");
-    // get the post
-    const post = await conn.collection("posts").findOne({
-      post_id: req.params.id,
-    });
-    // return the post
-    res.json(post);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      error: err,
-    });
-  }
-});
 router.get("/all_posts/", verifyToken, async function (req, res, next) {
   console.log("test");
   try {
@@ -199,8 +181,30 @@ router.get("/all_posts/", verifyToken, async function (req, res, next) {
       })
       .toArray(function (err, result) {
         if (err) throw err;
+        // change the liked_by to return the length of the array
+        result.forEach((post) => {
+          post.liked_by = post.liked_by.length;
+        });
         res.json(result);
       });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      error: err,
+    });
+  }
+});
+router.get("/:id", async function (req, res, next) {
+  console.log(req.params.id);
+  try {
+    // load model from models\postModel.js
+    const PostModel = require("../models/postModel");
+    // get the post
+    const post = await conn.collection("posts").findOne({
+      post_id: req.params.id,
+    });
+    // return the post
+    res.json(post);
   } catch (err) {
     console.log(err);
     res.status(500).json({
