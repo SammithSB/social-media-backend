@@ -7,6 +7,9 @@ const users = require("./routes/users.js");
 const posts = require("./routes/posts.js");
 const mongoose = require("mongoose");
 const uri = process.env.MONGO_CONNECTION_URL;
+
+var morgan = require("morgan");
+
 if (!uri) {
   console.error(
     "MONGO_CONNECTION_URL is not defined in .env file.\nIf the error comes in github actions, no syntax errors detected"
@@ -29,16 +32,18 @@ var conn = mongoose.connection;
 var user = {
   timestamp: Date.now(),
 };
-
+app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false })); // parse application/x-www-form-urlencoded
 app.use(bodyParser.json()); // parse application/json
 
 // main routes
-
+app.get("/", function (req, res) {
+  res.send("Hello World!");
+});
 app.use("/users", users);
 app.use("/posts", posts);
-router.get("/", function (req, res) {
-  res.send("Hello World!");
+app.use(function (req, res) {
+  res.status(404).send("what???");
 });
 // have the server start listening on the provided port
 app.listen(process.env.PORT || 3000, () => {

@@ -1,11 +1,10 @@
-const express = require("express");
-const router = express.Router();
+const router = require("express").Router();
 const mongoose = require("mongoose");
 const conn = mongoose.connection;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
-
+const app = require("./../app");
 async function verify_password(email, password) {
   // get the user from the database
   const user = await conn.collection("users").findOne({
@@ -39,12 +38,12 @@ const verifyToken = (req, res, next) => {
   return next();
 };
 router.post("/register", async function (req, res, next) {
+  console.log("HEy");
   try {
     // load model from models\userModel.js
     const UserModel = require("../models/userModel");
     // create a new user
     let user = null;
-    console.log(user);
     user = new UserModel({
       _id: new mongoose.Types.ObjectId(),
       email: req.body.email,
@@ -64,12 +63,13 @@ router.post("/register", async function (req, res, next) {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", async function (req, res, next) {
   // Our login logic starts here
+  console.log("Hi");
   try {
     // Get user input
     const { email, password } = req.body;
-
+    console.log(email, password);
     // Validate user input
     if (!(email && password)) {
       res.status(400).send("All input is required");
@@ -78,6 +78,7 @@ router.post("/login", async (req, res) => {
     const user = await conn.collection("users").findOne({
       email,
     });
+    console.log(user);
 
     if (user && password == user.password) {
       // Create token
@@ -96,18 +97,22 @@ router.post("/login", async (req, res) => {
 
       // user
       res.status(200).json(user);
+    } else {
+      res.status(400).send("Invalid Credentials");
     }
-    res.status(400).send("Invalid Credentials");
   } catch (err) {
     console.log(err);
   }
   // Our register logic ends here
 });
 
-router.get("/:id", async function (req, res, next) {
+router.get("/:email", async function (req, res, next) {
+  console.log(req.params.email);
   conn
     .collection("users")
-    .find({ _id: req.params.id })
+    .find({
+      email: req.params.email,
+    })
     .toArray(function (err, result) {
       if (err) throw err;
       res.json(result);
@@ -141,32 +146,46 @@ router.post("/authenticate", async function (req, res, next) {
 router.post("/follow/:id", verifyToken, async function (req, res, next) {
   // this function is wrong, update it
   console.log(req.emailDetected.email);
-  conn
-    .collection("users")
-    .updateOne(
-      { email: req.emailDetected.email },
-      { $push: { following: req.params.id } },
-      function (err, raw) {
-        if (err) return handleError(err);
-        console.log("The raw response from Mongo was ", raw);
-      }
-    );
-  return res.json({ status: "ok" });
+  conn.collection("users").updateOne(
+    {
+      email: req.emailDetected.email,
+    },
+    {
+      $push: {
+        following: req.params.id,
+      },
+    },
+    function (err, raw) {
+      if (err) return handleError(err);
+      console.log("The raw response from Mongo was ", raw);
+    }
+  );
+  return res.json({
+    status: "ok",
+  });
 });
 router.post("/unfollow/:id", verifyToken, async function (req, res, next) {
   // this function is wrong, update it
   console.log(req.emailDetected.email);
-  conn
-    .collection("users")
-    .updateOne(
-      { email: req.emailDetected.email },
-      { $pull: { following: req.params.id } },
-      function (err, raw) {
-        if (err) return handleError(err);
-        console.log("The raw response from Mongo was ", raw);
-      }
-    );
-  return res.json({ status: "ok" });
+  conn.collection("users").updateOne(
+    {
+      email: req.emailDetected.email,
+    },
+    {
+      $pull: {
+        following: req.params.id,
+      },
+    },
+    function (err, raw) {
+      if (err) return handleError(err);
+      console.log("The raw response from Mongo was ", raw);
+    }
+  );
+  return res.json({
+    status: "ok",
+  });
 });
-
+router.use(function (req, res) {
+  res.status(404).send("what user things???");
+});
 module.exports = router;

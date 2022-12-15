@@ -3,10 +3,12 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const conn = mongoose.connection;
 const bcrypt = require("bcrypt");
-
+const jwt = require("jsonwebtoken");
 async function verify_password(email, password) {
   // get the user from the database
-  const user = await conn.collection("users").findOne({ email: email });
+  const user = await conn.collection("users").findOne({
+    email: email,
+  });
   // check the password
   if (user) {
     const compare = password === user.password;
@@ -14,10 +16,28 @@ async function verify_password(email, password) {
   }
   return false;
 }
-// todo
-async function verify_jwt() {}
+const config = process.env;
 
-router.post("/posts", async function (req, res, next) {
+const verifyToken = (req, res, next) => {
+  // https://www.section.io/engineering-education/how-to-build-authentication-api-with-jwt-token-in-nodejs/
+  const token =
+    req.body.token || req.query.token || req.headers["x-access-token"];
+
+  if (!token) {
+    return res.status(403).send("A token is required for authentication");
+  }
+  try {
+    const decoded = jwt.verify(token, config.TOKEN_KEY);
+    req.emailDetected = decoded;
+  } catch (err) {
+    console.log(err);
+    return res.status(401).send("Invalid Token");
+  }
+
+  return next();
+};
+
+router.post("/", verifyToken, async function (req, res, next) {
   // this is slightly wrong, fix it later
   try {
     // load model from models\postModel.js
@@ -26,127 +46,167 @@ router.post("/posts", async function (req, res, next) {
     let post = null;
     post = new PostModel({
       _id: new mongoose.Types.ObjectId(),
-      email: req.body.email,
+      email: req.emailDetected.email,
       title: req.body.title,
-      content: req.body.content,
+      description: req.body.description,
+      liked_by: [],
+      comments: [],
+      post_id: req.body.post_id,
     });
     // save the post
-    await post.save();
-    // return the post
-    res.json(post);
+    await conn.collection("posts").insertOne(post, function (err, result) {
+      if (err) throw err;
+      res.json(result);
+    });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
-router.delete("/posts/:id", async function (req, res, next) {
+router.delete("/:id", verifyToken, async function (req, res, next) {
   try {
-    // load model from models\postModel.js
-    const PostModel = require("../models/postModel");
     // delete the post
-    await PostModel.deleteOne({ _id: req.params.id });
+    const post = await conn.collection("posts").findOne({
+      post_id: req.params.id,
+    });
+    console.log(post);
+    if (post.email != req.emailDetected.email) {
+      res.status(403).json({
+        error: "Cannot delete others posts",
+      });
+    } else {
+      await conn.collection("posts").deleteOne({
+        post_id: req.params.id,
+      });
+    }
     // return the post
-    res.json({ message: "Post deleted" });
+    res.json({
+      message: "Post deleted",
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
-router.post("/like/:id", async function (req, res, next) {
+router.post("/like/:id", verifyToken, async function (req, res, next) {
   // change the implementation such that you will even store who liked it
   try {
-    // load model from models\postModel.js
-    const PostModel = require("../models/postModel");
     // add like for a post
-    await PostModel.updateOne(
+    console.log(req.params.id, req.emailDetected.email);
+    await conn.collection("posts").updateOne(
       {
-        _id: req.body.id,
+        post_id: req.params.id,
       },
       {
-        $inc: {
-          likes: 1,
+        $push: {
+          liked_by: req.emailDetected.email,
         },
       }
     );
     // return the post
-    res.json({ message: "Post liked" });
+    res.json({
+      message: "Post liked",
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
-router.post("/unlike/:id", async function (req, res, next) {
+router.post("/unlike/:id", verifyToken, async function (req, res, next) {
   try {
-    // load model from models\postModel.js
-    const PostModel = require("../models/postModel");
-    // remove like from a post
-    await PostModel.updateOne(
+    // remove like for a post
+    console.log(req.params.id, req.emailDetected.email);
+    await conn.collection("posts").updateOne(
       {
-        _id: req.body.id,
+        post_id: req.params.id,
       },
       {
-        $inc: {
-          likes: -1,
+        $pull: {
+          liked_by: req.emailDetected.email,
         },
       }
     );
     // return the post
-    res.json({ message: "Post unliked" });
+    res.json({
+      message: "Post unliked",
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
-router.post("/comment/:id", async function (req, res, next) {
-  // implementation is wrong as of now, have to update it ensuring that comments are stored in a separate collection
+router.post("/comment/:id", verifyToken, async function (req, res, next) {
+  // implementation is wrong as of now, have to update it ensuring that comments are stored in a separate collectio
   try {
-    // load model from models\postModel.js
-    const PostModel = require("../models/postModel");
-    // add comment to a post
-    await PostModel.updateOne(
+    // add like for a post
+    console.log(req.params.id, req.emailDetected.email);
+    await conn.collection("posts").updateOne(
       {
-        _id: req.body.id,
+        post_id: req.params.id,
       },
       {
         $push: {
           comments: {
-            email: req.body.email,
+            email: req.emailDetected.email,
             content: req.body.content,
           },
         },
       }
     );
     // return the post
-    res.json({ message: "Comment added" });
+    res.json({
+      message: "Comment Added",
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
-router.get("/posts/:id", async function (req, res, next) {
+router.get("/:id", async function (req, res, next) {
+  console.log(req.params.id);
   try {
     // load model from models\postModel.js
     const PostModel = require("../models/postModel");
     // get the post
-    const post = await PostModel.findOne({ _id: req.params.id });
+    const post = await conn.collection("posts").findOne({
+      post_id: req.params.id,
+    });
     // return the post
     res.json(post);
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
-router.get("/all_posts", async function (req, res, next) {
+router.get("/", verifyToken, async function (req, res, next) {
+  console.log("test");
   try {
-    // load model from models\postModel.js
-    const PostModel = require("../models/postModel");
-    // get the post
-    const posts = await PostModel.find();
-    // return the post
-    res.json(posts);
+    console.log(req.emailDetected.email);
+    const posts = conn
+      .collection("posts")
+      .find({
+        email: req.emailDetected.email,
+      })
+      .toArray(function (err, result) {
+        if (err) throw err;
+        res.json(result);
+      });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err });
+    res.status(500).json({
+      error: err,
+    });
   }
 });
 
