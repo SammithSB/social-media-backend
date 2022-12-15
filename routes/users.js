@@ -63,7 +63,7 @@ router.post("/register", async function (req, res, next) {
   }
 });
 
-router.post("/login", async function (req, res, next) {
+router.post("/authenticate", async function (req, res, next) {
   // Our login logic starts here
   console.log("Hi");
   try {
@@ -96,7 +96,7 @@ router.post("/login", async function (req, res, next) {
       user.token = token;
 
       // user
-      res.status(200).json(user);
+      res.status(200).json(user.token);
     } else {
       res.status(400).send("Invalid Credentials");
     }
@@ -108,7 +108,7 @@ router.post("/login", async function (req, res, next) {
 router.get("/users", verifyToken, async function (req, res, next) {
   conn
     .collection("users")
-    .find({ email: { $ne: req.emailDetected.email } })
+    .find({ email: req.emailDetected.email })
     .toArray(function (err, result) {
       if (err) throw err;
       // remove all fields except name, number of followes and following
