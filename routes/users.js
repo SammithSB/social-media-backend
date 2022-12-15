@@ -160,6 +160,21 @@ router.post("/follow/:id", verifyToken, async function (req, res, next) {
       console.log("The raw response from Mongo was ", raw);
     }
   );
+  conn.collection("users").updateOne(
+    {
+      email: req.params.id,
+    },
+    {
+      $push: {
+        followers: req.emailDetected.email,
+      },
+    },
+    function (err, raw) {
+      if (err) return handleError(err);
+      console.log("The raw response from Mongo was ", raw);
+    }
+  );
+
   return res.json({
     status: "ok",
   });
@@ -181,6 +196,21 @@ router.post("/unfollow/:id", verifyToken, async function (req, res, next) {
       console.log("The raw response from Mongo was ", raw);
     }
   );
+  conn.collection("users").updateOne(
+    {
+      email: req.params.id,
+    },
+    {
+      $pull: {
+        followers: req.emailDetected.email,
+      },
+    },
+    function (err, raw) {
+      if (err) return handleError(err);
+      console.log("The raw response from Mongo was ", raw);
+    }
+  );
+
   return res.json({
     status: "ok",
   });

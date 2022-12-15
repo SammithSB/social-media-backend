@@ -55,7 +55,7 @@ router.post("/", verifyToken, async function (req, res, next) {
     });
     // save the post
     await conn.collection("posts").insertOne(post, function (err, result) {
-      if (err) throw err;
+      if (err) res.json(err);
       res.json(result);
     });
   } catch (err) {
@@ -70,9 +70,8 @@ router.delete("/:id", verifyToken, async function (req, res, next) {
     const post = await conn.collection("posts").findOne({
       post_id: req.params.id,
     });
-    console.log(post);
     if (post.email != req.emailDetected.email) {
-      res.status(403).json({
+      return res.status(403).json({
         error: "Cannot delete others posts",
       });
     } else {
@@ -189,7 +188,7 @@ router.get("/:id", async function (req, res, next) {
     });
   }
 });
-router.get("/", verifyToken, async function (req, res, next) {
+router.get("/all_posts/", verifyToken, async function (req, res, next) {
   console.log("test");
   try {
     console.log(req.emailDetected.email);
